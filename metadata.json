@@ -1,0 +1,8 @@
+{
+  "name": "Remix: Onboarding Audit Agent",
+  "description": "Experience onboarding before your employees do. An AI agent platform that simulates new hires reading documents, attempting tasks, identifying doc confusion / contradictions, and generating audit reports.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
