@@ -372,6 +372,14 @@ export class ServerDatabase {
     this.saveDb(db);
   }
 
+  static clearSessionChildren(id: string) {
+    const db = this.loadDb();
+    db.findings = db.findings.filter(f => f.sessionId !== id);
+    db.recommendations = db.recommendations.filter(r => r.sessionId !== id);
+    db.chatMessages = db.chatMessages.filter(c => c.sessionId !== id);
+    this.saveDb(db);
+  }
+
   static addFinding(finding: Finding) {
     const db = this.loadDb();
     db.findings.push(finding);

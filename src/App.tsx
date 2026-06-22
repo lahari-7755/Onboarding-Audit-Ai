@@ -703,10 +703,9 @@ export default function App() {
           <button
             id="nav-item-ask-ai-auditor"
             onClick={() => {
-              setIsSidebarChatOpen(true);
-              setActiveNav('Ask AI Auditor');
+              setIsSidebarChatOpen(!isSidebarChatOpen);
             }}
-            className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg text-xs font-semibold cursor-pointer transition-all whitespace-nowrap w-full text-left justify-start ${isSidebarChatOpen || activeNav === 'Ask AI Auditor' ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-sm font-bold' : 'text-[#10b981] hover:bg-[#1e293b] hover:text-white bg-emerald-950/15 border border-emerald-900/40'}`}
+            className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-lg text-xs font-semibold cursor-pointer transition-all whitespace-nowrap w-full text-left justify-start ${isSidebarChatOpen ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-sm font-bold' : 'text-[#10b981] hover:bg-[#1e293b] hover:text-white bg-emerald-950/15 border border-emerald-900/40'}`}
           >
             <Bot className="w-4 h-4 shrink-0 text-emerald-400 animate-pulse" />
             <div className="flex items-center justify-between w-full">
@@ -855,12 +854,11 @@ export default function App() {
                 </div>
 
                 {/* HERO ILLUSTRATED PICTURE */}
-                <div className="lg:col-span-5 h-full min-h-[220px] lg:min-h-[340px] relative flex items-center justify-center p-4">
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#0f172a] via-[#0f172a]/60 to-transparent z-10 lg:hidden"></div>
+                <div className="lg:col-span-5 h-full min-h-[280px] lg:min-h-[340px] relative flex items-center justify-center p-6 bg-[#0f172a] rounded-b-2xl lg:rounded-b-none lg:rounded-r-2xl overflow-hidden border-l border-slate-800">
                   <img 
-                    src="/src/assets/images/onboarding_hero_1782114780932.jpg" 
+                    src="/src/assets/images/enterprise_handbook_hero_1782146939906.jpg" 
                     alt="Autonomous AI Onboarding Audit Illustration" 
-                    className="absolute inset-0 w-full h-full object-cover rounded-b-2xl lg:rounded-b-none lg:rounded-r-2xl border-l border-slate-850"
+                    className="max-w-full max-h-full object-contain rounded-xl shadow-2xl"
                     referrerPolicy="no-referrer"
                   />
                   <div className="absolute top-4 right-4 bg-[#0f172a]/95 text-blue-400 font-mono text-[9px] font-bold px-3 py-1 rounded-full border border-blue-900/60 shadow-lg select-none z-20">
@@ -1455,95 +1453,6 @@ export default function App() {
           animate={{ opacity: 1, y: 0 }}
           className="space-y-6 w-full"
         >
-          {/* SIMULATION CONTROLLER FORM (Merged from Auditor Console) */}
-          <div id="auditor-console" className="bg-white border border-[#e2e8f0] rounded-xl p-5 shadow-sm print:hidden">
-            <h3 className="text-sm font-bold font-display text-[#0f172a] tracking-tight mb-3 uppercase flex items-center justify-between">
-              <span>Run Onboarding Simulation Audit</span>
-              <span className="text-[10px] font-mono text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded border border-blue-100 uppercase">AI Sandbox Core</span>
-            </h3>
-
-            <form onSubmit={handleTriggerSimulation} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-              <div className="md:col-span-4">
-                <label className="block text-[10px] font-bold text-[#64748b] uppercase mb-1.5 font-sans">Simulation Role Option</label>
-                <div className="relative">
-                  <select
-                    id="role-select"
-                    value={selectedRole}
-                    onChange={e => setSelectedRole(e.target.value as CandidateRole)}
-                    className="w-full text-xs font-semibold bg-slate-50 border border-[#e2e8f0] hover:border-[#94a3b8] rounded px-3 py-2.5 focus:ring-0 focus:outline-[#3b82f6] cursor-pointer appearance-none text-[#1e293b]"
-                  >
-                    <option value="Software Engineer">💻 Software Engineer</option>
-                    <option value="Product Manager">📝 Product Manager</option>
-                    <option value="Data Analyst">📊 Data Analyst</option>
-                    <option value="Intern">🌱 New Grad / Intern</option>
-                  </select>
-                  <div className="absolute right-3 top-3.5 pointer-events-none text-[#64748b] scale-[0.8]">
-                    ▼
-                  </div>
-                </div>
-              </div>
-
-              <div className="md:col-span-5">
-                <label className="block text-[10px] font-bold text-[#64748b] uppercase mb-1.5 font-sans">Optional Simulation Label</label>
-                <input
-                  type="text"
-                  id="session-name-input"
-                  placeholder="e.g. Remote SLA Check... (Defaults automated)"
-                  value={customSessionName}
-                  onChange={e => setCustomSessionName(e.target.value)}
-                  className="w-full text-xs border border-[#e2e8f0] hover:border-[#94a3b8] rounded px-3 py-2.5 text-[#1e293b] focus:outline-[#3b82f6]"
-                />
-              </div>
-
-              <div className="md:col-span-3">
-                <button
-                  type="submit"
-                  id="btn-run-simulation"
-                  disabled={isSimulating || documents.length === 0}
-                  className="w-full py-2.5 bg-[#0f172a] border border-[#0f172a] disabled:bg-[#f1f5f9] disabled:border-[#e2e8f0] disabled:text-[#94a3b8] text-white text-xs font-bold rounded-lg hover:bg-[#1e293b] flex items-center justify-center gap-1.5 cursor-pointer shadow-sm transition-all"
-                >
-                  {isSimulating ? (
-                    <>
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>Simulating...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Play className="w-3.5 h-3.5 text-[#3b82f6]" />
-                      <span>Deploy Agent Recruit</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-
-            {/* SIMULATOR BUSY STATE SCREEN */}
-            {isSimulating && (
-              <div className="mt-5 p-4 bg-[#0f172a] text-[#cbd5e1] border border-[#334155] rounded-lg shadow-sm">
-                <div className="flex justify-between items-center text-xs font-mono mb-2">
-                  <span className="text-[#3b82f6] flex items-center gap-1 font-bold animate-pulse">
-                    <Activity className="w-3 h-3" />
-                    AGENTS PROGRESS
-                  </span>
-                  <span className="font-bold text-white">{simulationProgress}%</span>
-                </div>
-                <div className="w-full bg-[#1e293b] h-1.5 rounded-full overflow-hidden">
-                  <div 
-                    className="bg-[#3b82f6] h-1.5 transition-all duration-500 ease-out"
-                    style={{ width: `${simulationProgress}%` }}
-                  ></div>
-                </div>
-                <p className="text-[10px] font-mono mt-2 text-[#94a3b8]">{simulationStatusText}</p>
-              </div>
-            )}
-            
-            {documents.length === 0 && (
-              <p className="text-[10.5px] text-amber-600 font-sans mt-3 font-medium bg-amber-50 rounded-lg p-2.5 border border-amber-100 flex items-center gap-1.5">
-                💡 Ingest at least one document in the <strong>Document Library</strong> to launch agent simulations.
-              </p>
-            )}
-          </div>
-
           {/* AUDIT ARCHIVE HISTORICAL LOGS */}
           <div className="bg-white border border-[#e2e8f0] rounded-xl p-5 shadow-sm space-y-4">
             <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
@@ -2146,164 +2055,130 @@ export default function App() {
       </footer>
       </div>
 
-      {/* CHATGPT SIDEBAR DRAWER OVERLAY */}
+      {/* CHAT SIDEBAR - OVERLAY PANEL */}
       <AnimatePresence>
         {isSidebarChatOpen && (
-          <>
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.5 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsSidebarChatOpen(false)}
-              className="fixed inset-0 bg-slate-950 z-[99] cursor-pointer print:hidden"
-            />
+          <motion.div
+            initial={{ x: '100%', opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: '100%', opacity: 0 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className="fixed right-0 top-0 bottom-0 w-full sm:w-[420px] bg-[#0f172a] text-slate-100 flex flex-col shadow-[0_0_50px_rgba(0,0,0,0.5)] z-[100] border-l border-[#1e293b] print:hidden overflow-hidden"
+          >
+            {/* Header */}
+            <div className="p-4 border-b border-[#1e293b] flex items-center justify-between bg-[#1e293b] shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-emerald-600 to-teal-600 flex items-center justify-center shadow-lg">
+                  <Bot className="w-5 h-5 text-white animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-extrabold text-white tracking-widest uppercase flex items-center gap-1 font-display">
+                    AI AUDITOR
+                  </h3>
+                  <p className="text-[10px] text-emerald-400 font-semibold font-mono uppercase tracking-tighter">Real-time Analysis</p>
+                </div>
+              </div>
 
-            {/* Panel */}
-            <motion.div
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed right-0 top-0 bottom-0 w-full sm:w-[480px] bg-[#0f172a] text-slate-100 flex flex-col shadow-2xl z-[100] border-l border-[#1e293b] print:hidden"
-            >
-              {/* Header */}
-              <div className="p-4 border-b border-[#1e293b] flex items-center justify-between bg-[#1e293b]">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-emerald-600 to-teal-600 flex items-center justify-center shadow-lg">
-                    <Bot className="w-5 h-5 text-white animate-pulse" />
+              <button
+                onClick={() => setIsSidebarChatOpen(false)}
+                className="p-1 px-2 rounded bg-slate-800 text-slate-300 hover:text-white text-[10px] uppercase hover:bg-slate-700 font-bold cursor-pointer transition"
+              >
+                Close ✕
+              </button>
+            </div>
+
+            {/* Main Chat Display */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-950/40">
+              {(selectedSessionId ? sessionDetail?.chats : globalChats)?.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center text-center p-6 space-y-4">
+                  <div className="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center mb-2 shadow-lg border border-slate-700/50">
+                    <Bot className="w-8 h-8 text-blue-400" />
                   </div>
-                  <div>
-                    <h3 className="text-xs font-extrabold text-white tracking-widest uppercase flex items-center gap-1 font-display">
-                      AI AUDITOR
-                    </h3>
-                    <p className="text-[10px] text-emerald-400 font-semibold font-mono">AI Auditor Core</p>
+                  <h3 className="text-lg font-bold text-white tracking-tight uppercase font-display">👋 Welcome to AI Auditor</h3>
+                  <div className="max-w-[280px] space-y-3">
+                    <div className="text-[11px] text-slate-400 font-medium leading-relaxed text-left space-y-2 bg-slate-900/60 p-4 rounded-xl border border-slate-800/50 shadow-inner">
+                      <p className="border-b border-slate-800 pb-2 mb-2 font-bold text-slate-300">I can help you:</p>
+                      <div className="flex items-start gap-2">
+                        <CheckCircle className="w-3 h-3 text-emerald-500 mt-0.5" />
+                        <span>Analyze onboarding documents</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <CheckCircle className="w-3 h-3 text-emerald-500 mt-0.5" />
+                        <span>Explain audit reports</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <CheckCircle className="w-3 h-3 text-emerald-500 mt-0.5" />
+                        <span>Detect contradictions</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <CheckCircle className="w-3 h-3 text-emerald-500 mt-0.5" />
+                        <span>Review compliance issues</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <CheckCircle className="w-3 h-3 text-emerald-500 mt-0.5" />
+                        <span>Suggest HR improvements</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <CheckCircle className="w-3 h-3 text-emerald-500 mt-0.5" />
+                        <span>Summarize uploaded files</span>
+                      </div>
+                    </div>
+                    <p className="text-xs font-bold text-blue-400 mt-4 animate-pulse">Ask me anything to get started.</p>
                   </div>
                 </div>
-
-                <button
-                  onClick={() => setIsSidebarChatOpen(false)}
-                  className="p-1 px-2.5 rounded bg-slate-800 text-slate-300 hover:text-white text-xs hover:bg-slate-700 font-semibold cursor-pointer transition"
-                >
-                  Close ✕
-                </button>
-              </div>
-
-              {/* Main Chat Display */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-950/40">
-                {(selectedSessionId ? sessionDetail?.chats : globalChats)?.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center min-h-full py-10 px-6">
-                    <motion.div
-                      initial={{ scale: 0.9, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      className="bg-[#1e293b] border border-[#2d3a4f] rounded-2xl p-8 max-w-sm w-full shadow-2xl relative overflow-hidden"
-                    >
-                      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-teal-500"></div>
-                      <div className="flex flex-col items-center text-center space-y-4">
-                        <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center border border-slate-800 shadow-inner">
-                          <Bot className="w-8 h-8 text-emerald-400" />
-                        </div>
-                        <div>
-                          <h3 className="text-lg font-bold text-white mb-1">👋 Welcome to AI Auditor</h3>
-                          <p className="text-slate-400 text-[11px] leading-relaxed">
-                            I can help you analyze onboarding documents, explain audit reports, detect contradictions, and more.
-                          </p>
-                        </div>
-                        <div className="w-full space-y-2 py-2">
-                          {[
-                            "Analyze onboarding documents",
-                            "Explain audit reports",
-                            "Detect contradictions",
-                            "Review compliance issues",
-                            "Suggest HR improvements",
-                            "Summarize uploaded files"
-                          ].map((item, i) => (
-                            <div key={i} className="flex items-center gap-2 text-left text-[10.5px] text-slate-300 bg-slate-900/50 p-2 rounded-lg border border-slate-800/50">
-                              <CheckCircle className="w-3 h-3 text-emerald-500 shrink-0" />
-                              <span>{item}</span>
-                            </div>
-                          ))}
-                        </div>
-                        <p className="text-xs font-semibold text-emerald-400 animate-pulse mt-4">
-                          Ask me anything to get started.
-                        </p>
-                      </div>
-                    </motion.div>
-                  </div>
-                ) : (
-                  (selectedSessionId ? sessionDetail?.chats : globalChats)?.map((chat) => {
-                    const isUser = chat.role === 'user';
-                    return (
-                      <div key={chat.id} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`max-w-[85%] rounded-xl px-4 py-3 text-xs leading-relaxed font-sans shadow-md ${isUser ? 'bg-blue-600 text-white rounded-br-none' : 'bg-[#1e293b] border border-[#2d3a4f] text-slate-100 rounded-bl-none'}`}>
-                          {!isUser && (
-                            <div className="flex items-center gap-1.5 text-[9px] font-bold text-blue-400 uppercase tracking-wider mb-1 font-mono">
-                              <Cpu className="w-3.5 h-3.5 text-blue-400" />
-                              {chat.agentName || 'AI Auditor'}
-                            </div>
-                          )}
-                          <div className="whitespace-pre-wrap select-text">{chat.text}</div>
-                          <div className="text-[8px] text-slate-400 text-right mt-1.5 font-mono">
-                            {new Date(chat.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              ) : (
+                (selectedSessionId ? sessionDetail?.chats : globalChats)?.map((chat) => {
+                  const isUser = chat.role === 'user';
+                  return (
+                    <div key={chat.id} className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[90%] rounded-xl px-3 py-2.5 text-xs leading-relaxed font-sans shadow-md ${isUser ? 'bg-blue-600 text-white rounded-br-none' : 'bg-[#1e293b] border border-[#2d3a4f] text-slate-100 rounded-bl-none font-medium'}`}>
+                        {!isUser && (
+                          <div className="flex items-center gap-1.5 text-[8px] font-bold text-blue-400 uppercase tracking-wider mb-1 font-mono">
+                            <Cpu className="w-3 h-3 text-blue-400" />
+                            {chat.agentName || 'AI Auditor'}
                           </div>
+                        )}
+                        <div className="whitespace-pre-wrap select-text text-[11px] font-sans">{chat.text}</div>
+                        <div className="text-[7px] text-slate-400 text-right mt-1.5 font-mono">
+                          {new Date(chat.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </div>
                       </div>
-                    );
-                  })
-                )}
-                
-                {isChatTyping && (
-                  <div className="flex justify-start">
-                    <div className="bg-[#1e293b] border border-[#2d3a4f] rounded-xl px-4 py-3.5 flex items-center gap-2 text-xs text-slate-400 font-medium rounded-bl-none shadow-md">
-                      <Cpu className="w-4 h-4 animate-spin text-blue-500" />
-                      <span className="text-blue-400 font-bold font-sans">Analyzing HR guidelines...</span>
                     </div>
+                  );
+                })
+              )}
+              
+              {isChatTyping && (
+                <div className="flex justify-start">
+                  <div className="bg-[#1e293b] border border-[#2d3a4f] rounded-xl px-3 py-2.5 flex items-center gap-2 text-xs text-slate-400 font-medium rounded-bl-none shadow-md">
+                    <Cpu className="w-3.5 h-3.5 animate-spin text-blue-500" />
+                    <span className="text-blue-400 font-bold font-sans text-[10px] uppercase">Analyzing Policy...</span>
                   </div>
-                )}
-                
-                <div ref={sidebarChatEndRef} />
-              </div>
+                </div>
+              )}
+              
+              <div ref={sidebarChatEndRef} />
+            </div>
 
-              {/* Preset prompt pills */}
-              <div className="p-3 bg-slate-900 border-t border-[#1e293b] flex gap-2 overflow-x-auto scrollbar-none">
-                {[
-                  "Find location contradictions.",
-                  "Summarize key team policy conflicts.",
-                  "What would confuse a software engineer?",
-                  "Help me draft the fix plan."
-                ].map((prompt, pIdx) => (
-                  <button
-                    key={pIdx}
-                    onClick={() => {
-                      setSidebarChatInput(prompt);
-                    }}
-                    className="whitespace-nowrap px-3 py-1.5 text-[10px] bg-[#1e293b] hover:bg-blue-600 border border-[#2d3a4f] hover:border-blue-500 font-bold text-[#94a3b8] hover:text-white rounded-lg transition cursor-pointer"
-                  >
-                    "{prompt}"
-                  </button>
-                ))}
-              </div>
-
-              {/* Chat Input form */}
-              <form onSubmit={handleSendSidebarChat} className="p-4 bg-[#1e293b] border-t border-[#1e293b] flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Ask any question to our AI Auditor..."
-                  value={sidebarChatInput}
-                  onChange={(e) => setSidebarChatInput(e.target.value)}
-                  disabled={isChatTyping}
-                  className="flex-1 text-xs px-3.5 py-3 bg-slate-950/60 border border-[#2d3a4f] rounded-xl text-slate-100 placeholder-slate-400 focus:outline-none focus:border-blue-500 font-sans"
-                />
-                <button
-                  type="submit"
-                  disabled={isChatTyping || !sidebarChatInput.trim()}
-                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:from-slate-800 disabled:to-slate-800 text-white p-3 py-3 rounded-xl flex items-center justify-center cursor-pointer transition shadow-lg shrink-0"
-                >
-                  <Send className="w-4 h-4" />
-                </button>
-              </form>
-            </motion.div>
-          </>
+            {/* Chat Input form */}
+            <form onSubmit={handleSendSidebarChat} className="p-3 bg-slate-900 border-t border-[#1e293b] flex gap-2 shrink-0">
+              <input
+                type="text"
+                placeholder="Ask the AI Auditor..."
+                value={sidebarChatInput}
+                onChange={(e) => setSidebarChatInput(e.target.value)}
+                disabled={isChatTyping}
+                className="flex-1 text-xs px-3 py-2.5 bg-slate-950/60 border border-[#2d3a4f] rounded-xl text-slate-100 placeholder-slate-400 focus:outline-none focus:border-blue-500 font-sans"
+              />
+              <button
+                type="submit"
+                disabled={isChatTyping || !sidebarChatInput.trim()}
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 disabled:from-slate-800 disabled:to-slate-800 text-white px-3 py-2.5 rounded-xl flex items-center justify-center cursor-pointer transition shadow-lg shrink-0"
+              >
+                <Send className="w-3.5 h-3.5" />
+              </button>
+            </form>
+          </motion.div>
         )}
       </AnimatePresence>
 

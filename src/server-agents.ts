@@ -180,6 +180,9 @@ Ensure your findings strictly extract and emphasize true gaps in the provided te
     }
 
     const data = JSON.parse(resultText);
+    
+    // Clear old findings, recommendations and chats for this specific session if re-running (e.g. global)
+    ServerDatabase.clearSessionChildren(sessionId);
 
     // Save outputs into SQLite simulation database
     ServerDatabase.updateSession(sessionId, {
@@ -250,12 +253,20 @@ Ensure your findings strictly extract and emphasize true gaps in the provided te
 export async function runAgentChat(sessionId: string, messageText: string): Promise<ChatMessage> {
   const msgLower = messageText.toLowerCase().trim();
   
-  // 1. Handle common greetings immediately as requested
-  const isGreeting = ['hi', 'hello', 'hey', 'greetings', 'morning', 'afternoon'].some(g => msgLower === g || msgLower.startsWith(g + ' '));
+  // 1. Handle common greetings and document summaries as requested
+  const isGreeting = ['hi', 'hello', 'hey', 'greetings', 'morning', 'afternoon', 'what have you analyzed'].some(g => msgLower === g || msgLower.startsWith(g + ' '));
+  const documents = ServerDatabase.getDocuments();
+  const allFindings = ServerDatabase.getSessions().reduce((acc, s) => acc + s.findingsCount, 0);
+
   if (isGreeting) {
     let greetingText = "Hello! I am AI Auditor. How can I help you today?";
     if (msgLower.includes('hello')) {
       greetingText = "Hello! I can help you analyze onboarding documents, explain reports, and answer HR-related questions.";
+    }
+
+    if (documents.length > 0) {
+      const docNames = documents.map(d => d.name).join(", ");
+      greetingText += `\n\nI have analyzed documents: **${docNames}**. Gaps found: **${allFindings}**. Ask me anything to clarify.`;
     }
     
     return ServerDatabase.addChat({
@@ -270,10 +281,9 @@ export async function runAgentChat(sessionId: string, messageText: string): Prom
 
   // 2. Fetch context (sessions, findings, docs)
   const session = sessionId !== 'global' ? ServerDatabase.getSession(sessionId) : null;
-  const findings = sessionId !== 'global' ? ServerDatabase.getSessionFindings(sessionId) : [];
-  const recommendations = sessionId !== 'global' ? ServerDatabase.getSessionRecommendations(sessionId) : [];
+  const findings = sessionId !== 'global' ? ServerDatabase.getSessionFindings(sessionId) : ServerDatabase.getSessions().flatMap(s => ServerDatabase.getSessionFindings(s.id));
+  const recommendations = sessionId !== 'global' ? ServerDatabase.getSessionRecommendations(sessionId) : ServerDatabase.getSessions().flatMap(s => ServerDatabase.getSessionRecommendations(s.id));
   const history = ServerDatabase.getSessionChats(sessionId);
-  const documents = ServerDatabase.getDocuments();
 
   // 3. If no documents are available, respond with specific message
   if (documents.length === 0) {
@@ -489,6 +499,9 @@ async function runFallbackSimulation(sessionId: string, role: CandidateRole, doc
 
   const riskScore = Math.min(100, Math.max(0, 100 - score + 12));
   const docQuality = Math.min(100, Math.max(0, score + 5));
+
+  // Clear old findings, recommendations and chats for this specific session if re-running (e.g. global)
+  ServerDatabase.clearSessionChildren(sessionId);
 
   ServerDatabase.updateSession(sessionId, {
     score: score,

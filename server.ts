@@ -87,6 +87,33 @@ async function startServer() {
       };
 
       ServerDatabase.addDocument(newDoc);
+      
+      // Auto-trigger a baseline audit if this is the first document or to refresh global state
+      const sessionId = 'global-audit-init';
+      const existingGlobal = ServerDatabase.getSession(sessionId);
+      
+      if (!existingGlobal) {
+        const baselineSession: any = {
+          id: sessionId,
+          name: "Baseline Corporate Audit",
+          date: new Date().toISOString(),
+          candidateRole: "Software Engineer",
+          score: 0,
+          status: 'running',
+          progress: 10,
+          findingsCount: 0,
+          contradictionCount: 0,
+          missingInfoCount: 0
+        };
+        ServerDatabase.addSession(baselineSession);
+      } else {
+        ServerDatabase.updateSession(sessionId, { status: 'running', progress: 10 });
+      }
+
+      runOnboardingAudit(sessionId, "Software Engineer")
+        .then(() => console.log("Baseline audit refreshed after document upload."))
+        .catch(err => console.error("Baseline audit failed:", err));
+
       res.json(newDoc);
     } catch (err: any) {
       console.error("Upload handler error:", err);
