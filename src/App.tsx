@@ -829,43 +829,33 @@ export default function App() {
               className="space-y-8"
             >
               {/* BRAND ADVANCED HERO */}
-              <div className="bg-[#0f172a] text-[#cbd5e1] rounded-2xl overflow-hidden relative shadow-md grid grid-cols-1 lg:grid-cols-12 gap-6 items-center border border-slate-800">
-                <div className="p-6 lg:p-10 lg:col-span-7 space-y-4 relative z-10">
+              <div className="bg-[#0f172a] text-[#cbd5e1] rounded-2xl overflow-hidden relative shadow-md border border-slate-800">
+                <div className="p-8 lg:p-14 max-w-4xl space-y-6 relative z-10">
                   <div className="flex items-center gap-2 font-display text-xs text-[#3b82f6] font-bold tracking-widest uppercase">
                     <Sparkles className="w-3.5 h-3.5 text-[#3b82f6] animate-pulse" />
                     Autonomous Alignment Platform
                   </div>
-                  <h2 className="text-2xl lg:text-4xl font-extrabold font-display tracking-tight text-white leading-tight">
+                  <h2 className="text-3xl lg:text-5xl font-extrabold font-display tracking-tight text-white leading-[1.1]">
                     Experience Your Onboarding Rules Before Real Employees Do
                   </h2>
-                  <p className="text-xs lg:text-sm text-[#94a3b8] leading-relaxed">
+                  <p className="text-sm lg:text-lg text-[#94a3b8] leading-relaxed max-w-3xl">
                     Agent Recruit AI acts as an actual new hire. It autonomously digests your company playbooks, attempts to complete setups, and charts structural process roadblocks. It checks security vaults, identifies outdated policy statements, and detects team workflow contradictions before they lead to real recruit confusion.
                   </p>
                   
-                  <div className="flex flex-wrap gap-3 pt-2">
+                  <div className="flex flex-wrap gap-4 pt-4">
                     <button
                       onClick={() => setActiveNav('Document Library')}
-                      className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-3 rounded-xl transition flex items-center gap-2 cursor-pointer shadow-md border border-blue-500 shadow-blue-500/15"
+                      className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm px-6 py-4 rounded-xl transition flex items-center gap-3 cursor-pointer shadow-lg border border-blue-500 shadow-blue-500/20"
                     >
-                      <Plus className="w-4 h-4" />
+                      <Plus className="w-5 h-5" />
                       <span>Ingest Handbook Document</span>
                     </button>
                   </div>
                 </div>
 
-                {/* HERO ILLUSTRATED PICTURE */}
-                <div className="lg:col-span-5 h-full min-h-[300px] lg:min-h-[340px] relative flex items-center justify-center bg-[#080c14] border-l border-slate-800 rounded-b-2xl lg:rounded-b-none lg:rounded-r-2xl overflow-hidden group">
-                  <img 
-                    src="/src/assets/images/enterprise_audit_dashboard_v2_1782147484091.jpg" 
-                    alt="Autonomous AI Onboarding Audit Illustration" 
-                    className="w-full h-full object-contain p-4 sm:p-6 transition-transform duration-700 group-hover:scale-[1.02]"
-                    referrerPolicy="no-referrer"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#0f172a]/20 to-transparent pointer-events-none"></div>
-                  <div className="absolute top-4 right-4 bg-[#0f172a]/95 text-blue-400 font-mono text-[9px] font-bold px-3 py-1 rounded-full border border-blue-900/60 shadow-lg select-none z-20">
-                    AGENT RECRUIT MODEL
-                  </div>
-                </div>
+                {/* Decorative background accent */}
+                <div className="absolute top-0 right-0 w-1/3 h-full bg-gradient-to-l from-blue-600/5 to-transparent pointer-events-none"></div>
+                <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-blue-600/10 rounded-full blur-[100px] pointer-events-none"></div>
               </div>
 
               {/* CARD BENEFITS DETAILS */}
