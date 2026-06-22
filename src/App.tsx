@@ -854,13 +854,14 @@ export default function App() {
                 </div>
 
                 {/* HERO ILLUSTRATED PICTURE */}
-                <div className="lg:col-span-5 h-full min-h-[280px] lg:min-h-[340px] relative flex items-center justify-center p-6 bg-[#0f172a] rounded-b-2xl lg:rounded-b-none lg:rounded-r-2xl overflow-hidden border-l border-slate-800">
+                <div className="lg:col-span-5 h-full min-h-[300px] lg:min-h-[340px] relative flex items-center justify-center bg-[#080c14] border-l border-slate-800 rounded-b-2xl lg:rounded-b-none lg:rounded-r-2xl overflow-hidden group">
                   <img 
-                    src="/src/assets/images/enterprise_handbook_hero_1782146939906.jpg" 
+                    src="/src/assets/images/enterprise_audit_dashboard_v2_1782147484091.jpg" 
                     alt="Autonomous AI Onboarding Audit Illustration" 
-                    className="max-w-full max-h-full object-contain rounded-xl shadow-2xl"
+                    className="w-full h-full object-contain p-4 sm:p-6 transition-transform duration-700 group-hover:scale-[1.02]"
                     referrerPolicy="no-referrer"
                   />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#0f172a]/20 to-transparent pointer-events-none"></div>
                   <div className="absolute top-4 right-4 bg-[#0f172a]/95 text-blue-400 font-mono text-[9px] font-bold px-3 py-1 rounded-full border border-blue-900/60 shadow-lg select-none z-20">
                     AGENT RECRUIT MODEL
                   </div>
