@@ -1,11 +1,8 @@
 import express from "express";
 import path from "path";
 import fs from "fs";
-import { createRequire } from "module";
+import * as pdfParseModule from "pdf-parse";
 import { createServer as createViteServer } from "vite";
-
-const require = createRequire(import.meta.url);
-const pdfParse = require('pdf-parse');
 
 import { ServerDatabase } from "./src/server-db.js";
 import { runOnboardingAudit, runAgentChat } from "./src/server-agents.js";
@@ -51,11 +48,18 @@ async function startServer() {
           const base64Data = base64Content.replace(/^data:application\/pdf;base64,/, "");
           const buffer = Buffer.from(base64Data, 'base64');
           
-          if (typeof pdfParse !== 'function') {
+          let parseFunc: any = pdfParseModule;
+          // Handle case where pdf-parse might be imported as a module object with a default property
+          if (typeof parseFunc !== 'function' && (pdfParseModule as any).default) {
+            parseFunc = (pdfParseModule as any).default;
+          }
+          
+          if (typeof parseFunc !== 'function') {
+            console.error("pdf-parse initialization failed. Type of pdfParseModule:", typeof pdfParseModule);
             throw new Error("PDF parser library failed to initialize correctly.");
           }
           
-          const pdfData = await pdfParse(buffer);
+          const pdfData = await parseFunc(buffer);
           parsedContent = pdfData.text || "";
         } catch (pdfErr) {
           console.error("Failed to parse PDF text:", pdfErr);
