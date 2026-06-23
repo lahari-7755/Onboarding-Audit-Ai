@@ -26,6 +26,12 @@ export interface AuditSession {
   findingsCount: number;
   contradictionCount: number;
   missingInfoCount: number;
+  // Detailed breakdown
+  clarityScore?: number;
+  completenessScore?: number;
+  consistencyScore?: number;
+  supportScore?: number;
+  executiveSummary?: string;
 }
 
 export interface Finding {

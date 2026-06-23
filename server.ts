@@ -1,7 +1,12 @@
 import express from "express";
 import path from "path";
 import fs from "fs";
+import { createRequire } from "module";
 import { createServer as createViteServer } from "vite";
+
+const require = createRequire(import.meta.url);
+const pdfParse = require('pdf-parse');
+
 import { ServerDatabase } from "./src/server-db.js";
 import { runOnboardingAudit, runAgentChat } from "./src/server-agents.js";
 import { AppDocument, CandidateRole } from "./src/types.js";
@@ -46,9 +51,11 @@ async function startServer() {
           const base64Data = base64Content.replace(/^data:application\/pdf;base64,/, "");
           const buffer = Buffer.from(base64Data, 'base64');
           
-          const pdfParser: any = await import('pdf-parse');
-          const parseFunc = pdfParser.default || pdfParser;
-          const pdfData = await parseFunc(buffer);
+          if (typeof pdfParse !== 'function') {
+            throw new Error("PDF parser library failed to initialize correctly.");
+          }
+          
+          const pdfData = await pdfParse(buffer);
           parsedContent = pdfData.text || "";
         } catch (pdfErr) {
           console.error("Failed to parse PDF text:", pdfErr);
@@ -56,18 +63,28 @@ async function startServer() {
         }
       }
 
-      // Check for DOCX extraction (fallback to plain text or zip tags if base64)
-      if (type === 'docx' && base64Content && !parsedContent) {
-        // Since docx is complex, we extract standard printable strings from the underlying zip as a clever text extractor!
+      // Check for DOCX extraction using mammoth
+      if ((type === 'docx' || type === 'doc' || name.toLowerCase().endsWith('.docx')) && base64Content && !parsedContent) {
         try {
+          console.log(`Parsing DOCX document "${name}" using mammoth...`);
           const base64Data = base64Content.replace(/^data:.*base64,/, "");
           const buffer = Buffer.from(base64Data, 'base64');
-          // Extract text like a smart text extractor
-          const rawZipText = buffer.toString('utf-8');
-          const matches = rawZipText.match(/[a-zA-Z0-9\s\.\,\!\?\-]{4,100}/g);
-          parsedContent = matches ? matches.join(" ") : "Word Docx extracted text file.";
+          
+          const mammoth = await import('mammoth');
+          const result = await mammoth.extractRawText({ buffer });
+          parsedContent = result.value || "";
+          
+          if (result.messages.length > 0) {
+            console.log("Mammoth messages:", result.messages);
+          }
         } catch (docxErr) {
-          parsedContent = "Word doc content parser fallback.";
+          console.error("Failed to parse DOCX with mammoth:", docxErr);
+          // Fallback extraction
+          const base64Data = base64Content.replace(/^data:.*base64,/, "");
+          const buffer = Buffer.from(base64Data, 'base64');
+          const rawZipText = buffer.toString('binary');
+          const matches = rawZipText.match(/[a-zA-Z0-9\s\.\,\!\?\-]{10,200}/g);
+          parsedContent = matches ? matches.join(" ") : "Word Docx extracted text file.";
         }
       }
 
@@ -76,7 +93,7 @@ async function startServer() {
       }
 
       const newDoc: AppDocument = {
-        id: 'doc-' + Date.now(),
+        id: 'doc-' + Date.now() + '-' + Math.random().toString(36).substring(2, 9),
         name,
         type,
         content: parsedContent,
@@ -178,7 +195,7 @@ async function startServer() {
         return res.status(400).json({ error: "Please upload at least one company policy or setup folder document first." });
       }
 
-      const sessionId = 'sess-' + Date.now();
+      const sessionId = 'sess-' + Date.now() + '-' + Math.random().toString(36).substring(2, 9);
       const newSession: any = {
         id: sessionId,
         name: name || `Simulation: ${candidateRole} (${new Date().toLocaleDateString()})`,
@@ -272,10 +289,30 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
+    
+    // API 404 handler
+    app.use('/api/*', (req, res) => {
+      res.status(404).json({ error: "Endpoint not found" });
+    });
+
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
+
+  // Global Error Handler
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error("Global Error Handler:", err);
+    // If it's an API request, return JSON
+    if (req.originalUrl.startsWith('/api/')) {
+      return res.status(err.status || 500).json({ 
+        error: "Internal Server Error", 
+        message: err.message || "An unexpected error occurred." 
+      });
+    }
+    // Fallback for non-API requests
+    next(err);
+  });
 
   // PORT value is hardcoded as 3000 by infrastructure constraints.
   app.listen(PORT, "0.0.0.0", () => {

@@ -6,20 +6,15 @@ let aiClient: GoogleGenAI | null = null;
 let isGeminiBlocked = false;
 
 function getGeminiClient(): GoogleGenAI | null {
-  if (isGeminiBlocked) {
-    return null;
-  }
   if (!aiClient) {
     const key = process.env.GEMINI_API_KEY;
     if (key && key !== 'MY_GEMINI_API_KEY' && key.trim() !== '') {
+      console.log("Initializing Gemini AI Client...");
       aiClient = new GoogleGenAI({
-        apiKey: key,
-        httpOptions: {
-          headers: {
-            'User-Agent': 'aistudio-build',
-          }
-        }
+        apiKey: key
       });
+    } else {
+      console.warn("GEMINI_API_KEY is missing or invalid. AI features will run in fallback simulation mode.");
     }
   }
   return aiClient;
@@ -53,130 +48,89 @@ export async function runOnboardingAudit(sessionId: string, role: CandidateRole)
   }
 
   try {
-    // Generate structured report via gemini-3.5-flash
-    const prompt = `You are the lead architect of the Onboarding Audit Agent. Your platform performs rigorous, silent testing of corporate documentation by simulating a new hire starting their journey.
+    // Generate structured report via gemini-1.5-flash
+    const prompt = `You are the lead architect of the Onboarding Audit Agent. 
+Auditing documentation for: **${role}**.
 
-We are auditing the onboarding documentation for a new developer starting in this role: **${role}**.
-
-Here is the entire corpus of uploaded corporate onboarding guidelines, setup readmes, and workplace handbook documents:
-
+CONTEXT:
 ${documentTexts}
 
-Your task is to run three synchronized agent cycles on this context:
-
-1. **DOCUMENT READER AGENT**: Examines the files, indexes context, and provides complete searchability.
-2. **EMPLOYEE SIMULATION AGENT**: Emulates a real newly hired **${role}**. This agent attempts to read policies, setup guides, managers, team owners, and external links. It catalogs every point where there is missing data, confusing requirements, broken processes, or workflow blockers.
-3. **CONTRADICTION DETECTOR AGENT**: Cross-compares all files. It finds conflicting claims, contradictory HR rules, opposing technological stack instructions, or clashing slack channels.
-
-For every issue/finding you flag (such as contradiction, missing owner, broken process, or friction point), you MUST provide a specific suggested fix and the impact assessment.
-
-Rules for Suggested Fixes:
-1. Be specific and actionable — never vague (e.g. Bad: "Clarify the onboarding timeline.", Good: "Update the IT Setup doc to match HR Handbook's stated 3-day SLA instead of the 5-day SLA currently listed.").
-2. Reference the exact source (document name, section, or process step) where the fix should be applied.
-3. If the issue is a contradiction between two sources, state which source should be treated as the source of truth and why (e.g., "HR Handbook is more recently updated, recommend aligning IT Setup doc to it").
-4. If you are not confident which version is correct, say so explicitly and suggest the fix be reviewed by a human rather than guessing.
-5. Do NOT generate a full corrected document. Only describe what should change, in 1-3 sentences per issue.
-
-OUTPUT JSON FORMAT:
-You must respond with valid JSON matching this schema:
+Analyze the documentation for contradictions, missing info, and setup blockers.
+Return ONLY a JSON object:
 {
-  "onboardingScore": number (0-100 score on overall onboarding readynes, 100 being excellent, 0 being chaotic),
-  "documentationQuality": number (0-100),
-  "missingInfoScore": number (0-100, where 100 means no information is missing),
-  "riskScore": number (0-100 risk of day-one dropouts or server outages),
-  "breakdown": {
-    "clarity": number (1-10),
-    "completeness": number (1-10),
-    "consistency": number (1-10),
-    "support": number (1-10)
-  },
-  "executiveSummary": "A concise master summary from the auditor agent describing what was encountered, clashing details, and overall setup risk.",
+  "onboardingScore": (0-100),
+  "documentationQuality": (0-100),
+  "missingInfoScore": (0-100),
+  "riskScore": (0-100),
+  "breakdown": { "clarity": 1-10, "completeness": 1-10, "consistency": 1-10, "support": 1-10 },
+  "executiveSummary": "...",
   "findings": [
-    {
-      "type": "info_miss" | "contradiction" | "ambiguous" | "confusion" | "broken_setup",
-      "title": "Short title of the problem encountered",
-      "description": "The description/issue explanation: what's wrong.",
-      "documentReference": "The files involved in the conflict or missing details",
-      "severity": "HIGH" | "MEDIUM" | "LOW",
-      "details": "Deeper technical analysis of the problem.",
-      "whyItMatters": "The detailed impact of this issue on the new hire's experience.",
-      "suggestedFix": "A specific, actionable solution of 1-3 sentences following all the rules laid out above. Must name the files/sections, resolve contradictions, or suggest human review."
-    }
+    { "type": "info_miss"|"contradiction"|"ambiguous"|"confusion"|"broken_setup", "title": "...", "description": "...", "documentReference": "...", "severity": "HIGH"|"MEDIUM"|"LOW", "details": "...", "whyItMatters": "...", "suggestedFix": "..." }
   ],
   "recommendations": [
-    {
-      "category": "e.g. Developer Secrets Management, Work Agreement alignment",
-      "text": "What action to take",
-      "actionItem": "Concrete, step-by-step instruction how to fix the documentation",
-      "impact": "HIGH" | "MEDIUM" | "LOW"
-    }
+    { "category": "...", "text": "...", "actionItem": "...", "impact": "HIGH"|"MEDIUM"|"LOW" }
   ]
-}
+}`;
 
-Ensure your findings strictly extract and emphasize true gaps in the provided text. Return ONLY the valid JSON, no markdown wrappers outside the JSON string (do not include \`\`\`json wrappers in the response body if possible, or support clean JSON parsing).`;
-
-    const response = await ai.models.generateContent({
+    const interaction = await ai.interactions.create({
       model: "gemini-3.5-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            onboardingScore: { type: Type.INTEGER },
-            documentationQuality: { type: Type.INTEGER },
-            missingInfoScore: { type: Type.INTEGER },
-            riskScore: { type: Type.INTEGER },
-            breakdown: {
+      input: prompt,
+      response_format: {
+        type: Type.OBJECT,
+        properties: {
+          onboardingScore: { type: Type.INTEGER },
+          documentationQuality: { type: Type.INTEGER },
+          missingInfoScore: { type: Type.INTEGER },
+          riskScore: { type: Type.INTEGER },
+          breakdown: {
+            type: Type.OBJECT,
+            properties: {
+              clarity: { type: Type.INTEGER },
+              completeness: { type: Type.INTEGER },
+              consistency: { type: Type.INTEGER },
+              support: { type: Type.INTEGER }
+            },
+            required: ["clarity", "completeness", "consistency", "support"]
+          },
+          executiveSummary: { type: Type.STRING },
+          findings: {
+            type: Type.ARRAY,
+            items: {
               type: Type.OBJECT,
               properties: {
-                clarity: { type: Type.INTEGER },
-                completeness: { type: Type.INTEGER },
-                consistency: { type: Type.INTEGER },
-                support: { type: Type.INTEGER }
+                type: { type: Type.STRING },
+                title: { type: Type.STRING },
+                description: { type: Type.STRING },
+                documentReference: { type: Type.STRING },
+                severity: { type: Type.STRING },
+                details: { type: Type.STRING },
+                whyItMatters: { type: Type.STRING },
+                suggestedFix: { type: Type.STRING }
               },
-              required: ["clarity", "completeness", "consistency", "support"]
-            },
-            executiveSummary: { type: Type.STRING },
-            findings: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  type: { type: Type.STRING, description: "Must be info_miss, contradiction, ambiguous, confusion, or broken_setup" },
-                  title: { type: Type.STRING },
-                  description: { type: Type.STRING },
-                  documentReference: { type: Type.STRING },
-                  severity: { type: Type.STRING, description: "Must be HIGH, MEDIUM, or LOW" },
-                  details: { type: Type.STRING },
-                  whyItMatters: { type: Type.STRING, description: "Detailed impact on new hire experience" },
-                  suggestedFix: { type: Type.STRING, description: "Specific 1-3 sentence actionable fix referencing target source" }
-                },
-                required: ["type", "title", "description", "documentReference", "severity", "whyItMatters", "suggestedFix"]
-              }
-            },
-            recommendations: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  category: { type: Type.STRING },
-                  text: { type: Type.STRING },
-                  actionItem: { type: Type.STRING },
-                  impact: { type: Type.STRING, description: "Must be HIGH, MEDIUM, or LOW" }
-                },
-                required: ["category", "text", "actionItem", "impact"]
-              }
+              required: ["type", "title", "description", "documentReference", "severity", "whyItMatters", "suggestedFix"]
             }
           },
-          required: ["onboardingScore", "documentationQuality", "missingInfoScore", "riskScore", "breakdown", "executiveSummary", "findings", "recommendations"]
-        }
+          recommendations: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                category: { type: Type.STRING },
+                text: { type: Type.STRING },
+                actionItem: { type: Type.STRING },
+                impact: { type: Type.STRING }
+              },
+              required: ["category", "text", "actionItem", "impact"]
+            }
+          }
+        },
+        required: ["onboardingScore", "documentationQuality", "missingInfoScore", "riskScore", "breakdown", "executiveSummary", "findings", "recommendations"]
       }
     });
 
-    const resultText = response.text;
+    const resultText = interaction.output_text;
     if (!resultText) {
-      throw new Error("No response text yielded from Gemini API");
+      throw new Error("Empty response from AI Agent.");
     }
 
     const data = JSON.parse(resultText);
@@ -189,6 +143,11 @@ Ensure your findings strictly extract and emphasize true gaps in the provided te
       score: data.onboardingScore,
       status: 'completed',
       progress: 100,
+      clarityScore: data.breakdown.clarity,
+      completenessScore: data.breakdown.completeness,
+      consistencyScore: data.breakdown.consistency,
+      supportScore: data.breakdown.support,
+      executiveSummary: data.executiveSummary,
       findingsCount: data.findings.length,
       contradictionCount: data.findings.filter((f: any) => f.type === 'contradiction').length,
       missingInfoCount: data.findings.filter((f: any) => f.type === 'info_miss').length
@@ -197,7 +156,7 @@ Ensure your findings strictly extract and emphasize true gaps in the provided te
     // Populate Findings
     data.findings.forEach((f: any) => {
       ServerDatabase.addFinding({
-        id: 'find-gemini-' + Math.random().toString(36).substr(2, 9),
+        id: 'find-gemini-' + sessionId + '-' + Math.random().toString(36).substring(2, 9),
         sessionId,
         type: f.type,
         title: f.title,
@@ -214,7 +173,7 @@ Ensure your findings strictly extract and emphasize true gaps in the provided te
     // Populate Recommendations
     data.recommendations.forEach((r: any) => {
       ServerDatabase.addRecommendation({
-        id: 'rec-gemini-' + Math.random().toString(36).substr(2, 9),
+        id: 'rec-gemini-' + sessionId + '-' + Math.random().toString(36).substring(2, 9),
         sessionId,
         category: r.category,
         text: r.text,
@@ -225,7 +184,7 @@ Ensure your findings strictly extract and emphasize true gaps in the provided te
 
     // Add first onboarding assistant greeting to the chat memory
     ServerDatabase.addChat({
-      id: 'chat-gemini-init-' + Math.random().toString(36).substr(2, 9),
+      id: 'chat-gemini-init-' + sessionId + '-' + Math.random().toString(36).substring(2, 9),
       sessionId,
       role: 'assistant',
       text: `Greetings! I am the **Onboarding Audit Agent**. I have compiled the audit simulation for a newly hired **${role}**.\n\n### Overall Score: **${data.onboardingScore}%**\nWe identified **${data.findings.filter((f: any) => f.type === 'contradiction').length} contradictory guidelines** and **${data.findings.filter((f: any) => f.type === 'info_miss').length} missing elements** in your resources.\n\n* ${data.executiveSummary}\n\nAsk me any questions about our specific findings or contradiction breakdown!`,
@@ -235,13 +194,7 @@ Ensure your findings strictly extract and emphasize true gaps in the provided te
 
     return true;
   } catch (err: any) {
-    const isPermissionError = err?.message?.includes('denied') || err?.status === 403 || String(err).includes('403') || String(err).includes('PERMISSION_DENIED');
-    if (isPermissionError) {
-      isGeminiBlocked = true;
-      console.log("Gemini API access denied (403 PERMISSION_DENIED). Setting fallback-only mode & running local high-fidelity simulation...");
-    } else {
-      console.log("Gemini live execution failed. Rolling back to robust simulated audit response...", err?.message || err);
-    }
+    console.error("Gemini Audit Execution Failed:", err?.message || err);
     await runFallbackSimulation(sessionId, role, documentTexts);
     return true;
   }
@@ -270,7 +223,7 @@ export async function runAgentChat(sessionId: string, messageText: string): Prom
     }
     
     return ServerDatabase.addChat({
-      id: 'chat-agent-' + Date.now(),
+      id: 'chat-agent-greet-' + sessionId + '-' + Date.now() + '-' + Math.random().toString(36).substring(2, 9),
       sessionId,
       role: 'assistant',
       text: greetingText,
@@ -288,7 +241,7 @@ export async function runAgentChat(sessionId: string, messageText: string): Prom
   // 3. If no documents are available, respond with specific message
   if (documents.length === 0) {
     return ServerDatabase.addChat({
-      id: 'chat-agent-' + Date.now(),
+      id: 'chat-agent-nodocs-' + sessionId + '-' + Date.now() + '-' + Math.random().toString(36).substring(2, 9),
       sessionId,
       role: 'assistant',
       text: "No onboarding documents are available yet. Please upload documents in the Document Library, and I will help analyze them.",
@@ -299,7 +252,7 @@ export async function runAgentChat(sessionId: string, messageText: string): Prom
 
   // 4. Add the user message to history
   ServerDatabase.addChat({
-    id: 'chat-user-' + Date.now(),
+    id: 'chat-user-' + sessionId + '-' + Date.now() + '-' + Math.random().toString(36).substring(2, 9),
     sessionId,
     role: 'user',
     text: messageText,
@@ -313,7 +266,7 @@ export async function runAgentChat(sessionId: string, messageText: string): Prom
     const role = session?.candidateRole || 'Software Engineer';
     const fallbackVal = generateLocalAgentResponse(role, messageText, findings, recommendations);
     return ServerDatabase.addChat({
-      id: 'chat-agent-' + Date.now(),
+      id: 'chat-agent-fallback-' + sessionId + '-' + Date.now() + '-' + Math.random().toString(36).substring(2, 9),
       sessionId,
       role: 'assistant',
       text: fallbackVal,
@@ -328,16 +281,18 @@ export async function runAgentChat(sessionId: string, messageText: string): Prom
     const formattedHistory = history.map(h => `${h.role === 'user' ? 'User' : 'Agent (' + (h.agentName || 'Auditor') + ')'}: ${h.text}`).join("\n\n");
     const formattedFindings = findings.map(f => `- [${f.severity} ${f.type.toUpperCase()}] ${f.title}: ${f.description} (${f.documentReference})`).join("\n");
 
-    const chatPrompt = `You are the AI Auditor, a professional HR and Employee Onboarding specialist. 
-Your goal is to help users analyze onboarding documents, explain reports, detect contradictions, review compliance, and suggest HR improvements.
+    const chatPrompt = `You are the AI Auditor, a highly sophisticated and empathetic AI designed to assist with HR and Employee Onboarding. 
+Your personality is professional, intelligent, and helpful—similar to ChatGPT but with a specialized expertise in workplace policies, compliance, and auditing.
+
+Your goal is to provide nuanced, conversational, and deeply helpful answers. Do not just list facts; explain them with a human touch. When analyzing documents, look for subtle contradictions or workflow frictions that a human might miss.
 
 CONTEXT:
 ${session ? `Simulated Role: ${session.candidateRole}\n` : ''}
 ${findings.length > 0 ? `CURRENT SESSION FINDINGS:\n${formattedFindings}\n` : ''}
 ${recommendations.length > 0 ? `RECOMMENDATIONS:\n${recommendations.map(r => `- ${r.text}`).join("\n")}\n` : ''}
 
-GLOBAL REPOSITORY DOCUMENTS:
-${docContext.substring(0, 15000)} // Safety truncate for context length
+GLOBAL REPOSITORY DOCUMENTS (Knowledge Base):
+${docContext.substring(0, 15000)}
 
 CONVERSATION HISTORY:
 ${formattedHistory}
@@ -345,23 +300,23 @@ ${formattedHistory}
 USER QUESTION:
 "${messageText}"
 
-PERSONALITY & RULES:
-1. Always stay focused on HR, employee onboarding, policies, compliance, and audit reports.
-2. If the user asks general questions unrelated to onboarding (e.g. weather, sports, general math), answer politely and briefly, then guide them back to HR and onboarding topics.
-3. Be professional, natural like ChatGPT, but always stay in character as the Human Resources and Compliance Auditor.
-4. If documents are provided, read them to summarize, explain, or find contradictions.
-5. Never output internal system messages, persona requirements, or error logs.
-6. Use clean markdown formatting.`;
+GUIDELINES FOR YOUR RESPONSE:
+1. **Be Conversational**: Speak naturally. Use phrases like "I noticed that...", "It's worth noting that...", or "To give you more context..."
+2. **HR Expertise**: You are an expert in Onboarding, Compliance, and Process Optimization.
+3. **Handle Non-HR Queries Gracefully**: If asked about unrelated topics, give a brief, friendly answer and then pivot back to how you can help with their onboarding audit.
+4. **Markdown Formatting**: Use bolding, lists, and headings to make your response easy to read.
+5. **No Robot Talk**: Avoid repetitive phrases like "I am an AI assistant". Be the Human Resources and Compliance Auditor.`;
 
-    const response = await ai.models.generateContent({
+    const interaction = await ai.interactions.create({
       model: "gemini-3.5-flash",
-      contents: chatPrompt,
+      input: messageText,
+      system_instruction: chatPrompt
     });
 
-    const text = response.text || "I apologize, I am analyzing that requested topic but couldn't form a response. How else can I assist with your onboarding documents?";
+    const text = interaction.output_text || "I apologize, I am analyzing that requested topic but couldn't form a response. How else can I assist with your onboarding documents?";
 
     return ServerDatabase.addChat({
-      id: 'chat-agent-' + Date.now(),
+      id: 'chat-agent-gen-' + sessionId + '-' + Date.now() + '-' + Math.random().toString(36).substring(2, 9),
       sessionId,
       role: 'assistant',
       text: text,
@@ -373,7 +328,7 @@ PERSONALITY & RULES:
     console.error("Agent chat failed:", err);
     // Generic polite HR fallback
     return ServerDatabase.addChat({
-      id: 'chat-agent-' + Date.now(),
+      id: 'chat-agent-err-' + sessionId + '-' + Date.now() + '-' + Math.random().toString(36).substring(2, 9),
       sessionId,
       role: 'assistant',
       text: "I encountered a minor processing delay while reviewing your request. Could you please specify which policy or report finding you would like me to examine further?",
@@ -399,7 +354,7 @@ async function runFallbackSimulation(sessionId: string, role: CandidateRole, doc
   if (containsHybrid && containsRemote) {
     score -= 15;
     findings.push({
-      id: 'find-fb-1',
+      id: 'find-fb-1-' + sessionId + '-' + Math.random().toString(36).substring(2, 9),
       sessionId,
       type: 'contradiction',
       title: 'Conflicting Corporate Workplace Policy (Office vs Virtual-First)',
@@ -412,7 +367,7 @@ async function runFallbackSimulation(sessionId: string, role: CandidateRole, doc
       suggestedFix: 'Clarify work expectation by treating "Remote Work Onboarding FAQ.docx" as the primary source of truth, aligning "Company Work Location Policy 2026.pdf" Section 4.1 to formally denote that engineering personnel are exempted from the weekly 3-day office attendance badge swipe rule.'
     });
     recommendations.push({
-      id: 'rec-fb-1',
+      id: 'rec-fb-1-' + sessionId + '-' + Math.random().toString(36).substring(2, 9),
       sessionId,
       category: 'Work Model Policy Alignment',
       text: 'Examine current office requirements and declare a single source of truth inside documents.',
@@ -424,7 +379,7 @@ async function runFallbackSimulation(sessionId: string, role: CandidateRole, doc
   if (containsChen) {
     score -= 10;
     findings.push({
-      id: 'find-fb-2',
+      id: 'find-fb-2-' + sessionId + '-' + Math.random().toString(36).substring(2, 9),
       sessionId,
       type: 'info_miss',
       title: 'Sarah Chen Blockpoint during Dev Setup',
@@ -437,7 +392,7 @@ async function runFallbackSimulation(sessionId: string, role: CandidateRole, doc
       suggestedFix: 'Update "Engineering Onboarding Setup Guide.md" Section 3 to migrate payment credentials from individual direct messages to a self-service Doppler sandbox vault with centralized secret permissions.'
     });
     recommendations.push({
-      id: 'rec-fb-2',
+      id: 'rec-fb-2-' + sessionId + '-' + Math.random().toString(36).substring(2, 9),
       sessionId,
       category: 'Secrets Management Infrastructure',
       text: 'Store Payment Sandbox credentials securely inside an enterprise vault (e.g., Doppler/Vault).',
@@ -450,7 +405,7 @@ async function runFallbackSimulation(sessionId: string, role: CandidateRole, doc
   if (role === 'Software Engineer') {
     score -= 5;
     findings.push({
-      id: 'find-fb-3',
+      id: 'find-fb-3-' + sessionId + '-' + Math.random().toString(36).substring(2, 9),
       sessionId,
       type: 'broken_setup',
       title: 'Docker Local Sandbox Settings Caveat',
@@ -467,7 +422,7 @@ async function runFallbackSimulation(sessionId: string, role: CandidateRole, doc
   if (role === 'Intern') {
     score -= 12;
     findings.push({
-      id: 'find-fb-4',
+      id: 'find-fb-4-' + sessionId + '-' + Math.random().toString(36).substring(2, 9),
       sessionId,
       type: 'ambiguous',
       title: 'Approval Chain and Buddy Unclarity',
@@ -484,7 +439,7 @@ async function runFallbackSimulation(sessionId: string, role: CandidateRole, doc
   // Simple defaults if context didn't trigger specific guidelines
   if (findings.length === 0) {
     findings.push({
-      id: 'find-fb-default',
+      id: 'find-fb-default-' + sessionId + '-' + Math.random().toString(36).substring(2, 9),
       sessionId,
       type: 'info_miss',
       title: 'Documentation Setup Gaps Detected',
@@ -507,6 +462,11 @@ async function runFallbackSimulation(sessionId: string, role: CandidateRole, doc
     score: score,
     status: 'completed',
     progress: 100,
+    clarityScore: Math.max(0, Math.min(10, Math.round((score / 10) + 1))),
+    completenessScore: Math.max(0, Math.min(10, Math.round((score / 10) - 1))),
+    consistencyScore: Math.max(0, Math.min(10, Math.round((score / 10)))),
+    supportScore: Math.max(0, Math.min(10, 7)),
+    executiveSummary: `The local agent simulated a hired ${role} and detected significant friction points in the corporate knowledge base. While core technical instructions appear present, the organizational alignment regarding work location and secrets management is severely degraded.`,
     findingsCount: findings.length,
     contradictionCount: findings.filter(f => f.type === 'contradiction').length,
     missingInfoCount: findings.filter(f => f.type === 'info_miss').length
@@ -517,7 +477,7 @@ async function runFallbackSimulation(sessionId: string, role: CandidateRole, doc
 
   // Chat greeting hook
   ServerDatabase.addChat({
-    id: 'chat-fb-init-' + Date.now(),
+    id: 'chat-fb-init-' + sessionId + '-' + Date.now() + '-' + Math.random().toString(36).substring(2, 9),
     sessionId,
     role: 'assistant',
     text: `### Simulation Mode Initiated [Local Agent]

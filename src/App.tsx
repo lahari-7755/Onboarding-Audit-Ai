@@ -216,10 +216,11 @@ export default function App() {
     setTimeout(() => setSuccessMessage(null), 4000);
   };
 
-  // File Upload Handlers (supports PDF parsing on server!)
+  // File Upload Handlers (supports PDF & DOCX parsing on server!)
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
+    const lastFileName = files[files.length - 1].name;
     setIsUploading(true);
 
     try {
@@ -231,13 +232,15 @@ export default function App() {
           reader.onload = async (event) => {
             try {
               const fileResult = event.target?.result as string;
+              const fileNameLower = file.name.toLowerCase();
               let payload: any = {
                 name: file.name,
                 size: file.size,
                 type: file.name.slice((file.name.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase()
               };
 
-              if (payload.type === 'pdf') {
+              // Handle binary formats (PDF and Word)
+              if (fileNameLower.endsWith('.pdf') || fileNameLower.endsWith('.docx') || fileNameLower.endsWith('.doc')) {
                 // Read as data URL to extract binary base64
                 const binaryReader = new FileReader();
                 binaryReader.onload = async (binEvent) => {
@@ -251,7 +254,7 @@ export default function App() {
                 };
                 binaryReader.readAsDataURL(file);
               } else {
-                // TXT, Markdown or DOCX
+                // TXT or Markdown
                 payload.content = fileResult;
                 await uploadToServer(payload);
                 resolve();
@@ -261,7 +264,7 @@ export default function App() {
             }
           };
           
-          if (file.name.toLowerCase().endsWith('.pdf')) {
+          if (file.name.toLowerCase().endsWith('.pdf') || file.name.toLowerCase().endsWith('.docx') || file.name.toLowerCase().endsWith('.doc')) {
             // Placeholder read, handled in secondary reader
             reader.readAsText(file.slice(0, 100)); 
           } else {
@@ -269,8 +272,12 @@ export default function App() {
           }
         });
       }
-      showFlashSuccess("Documents indexed and analyzed successfully!");
-      fetchDocuments();
+      showFlashSuccess("Documents indexed successfully! Starting automated audit report...");
+      await fetchDocuments();
+      
+      // Auto-trigger simulation after upload using the last filename as report title
+      await runAuditSimulation(lastFileName);
+
     } catch (err: any) {
       showFlashError(err.message || "File upload failed.");
     } finally {
@@ -279,14 +286,109 @@ export default function App() {
   };
 
   const uploadToServer = async (payload: any) => {
-    const res = await fetch('/api/documents', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    if (!res.ok) {
-      const errorData = await res.json();
-      throw new Error(errorData.error || "Failed to parse document");
+    try {
+      const res = await fetch('/api/documents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      
+      const contentType = res.headers.get("content-type");
+      if (!res.ok) {
+        if (contentType && contentType.includes("application/json")) {
+          const errorData = await res.json();
+          throw new Error(errorData.error || "Failed to process document");
+        } else {
+          const textError = await res.text();
+          console.error("Server error (not JSON):", textError);
+          throw new Error(`Server Error (${res.status}): The system could not process this document. It might be too large or invalid.`);
+        }
+      }
+      return await res.json();
+    } catch (err: any) {
+      console.error("Upload error:", err);
+      throw err;
+    }
+  };
+
+  // Dedicated audit simulation runner
+  const runAuditSimulation = async (customName?: string) => {
+    setIsSimulating(true);
+    setSimulationProgress(15);
+    setSimulationStatusText("Step 1: Segmenting document context chunks...");
+    
+    // Smooth visual rhythm
+    const progressInterval = setInterval(() => {
+      setSimulationProgress(prev => {
+        if (prev < 40) {
+          setSimulationStatusText("Step 2: Activating Document Reader Agent & loading memory matrices...");
+          return prev + 5;
+        } else if (prev < 70) {
+          setSimulationStatusText(`Step 3: Employee Simulation Agent acting as newly hired [${selectedRole}]...`);
+          return prev + 4;
+        } else if (prev < 95) {
+          setSimulationStatusText("Step 4: Contradiction Detector comparing HR policies & developer guides...");
+          return prev + 3;
+        }
+        return prev;
+      });
+    }, 1500);
+
+    try {
+      const res = await fetch('/api/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: customName || (customSessionName.trim() ? customSessionName : undefined),
+          candidateRole: selectedRole
+        })
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Simulation failed to start.");
+      }
+
+      const newSessionObj = await res.json();
+      
+      // Navigate immediately while processing
+      setActiveNav('Reports');
+      setSelectedSessionId(newSessionObj.id);
+
+      let isComplete = false;
+      let checkAttempts = 0;
+      
+      while (!isComplete && checkAttempts < 20) {
+        await new Promise(r => setTimeout(r, 2000));
+        const checkRes = await fetch(`/api/sessions/${newSessionObj.id}`);
+        if (checkRes.ok) {
+          const detailData = await checkRes.json();
+          if (detailData.session.status === 'completed') {
+            isComplete = true;
+            clearInterval(progressInterval);
+            setSimulationProgress(100);
+            setSimulationStatusText("Audit Simulation Complete!");
+            showFlashSuccess("Handbook Audit fully automatically generated!");
+            
+            // Reload fresh details
+            setSessionDetail(detailData);
+            await fetchSessions();
+            break;
+          } else if (detailData.session.status === 'failed') {
+            throw new Error("Audit Agent encountered a runtime roadblock.");
+          }
+        }
+        checkAttempts++;
+      }
+
+      setCustomSessionName('');
+
+    } catch (err: any) {
+      clearInterval(progressInterval);
+      showFlashError(err.message || "Audit simulation interrupted.");
+    } finally {
+      clearInterval(progressInterval);
+      setIsSimulating(false);
     }
   };
 
@@ -314,14 +416,20 @@ export default function App() {
       });
 
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Failed to upload.");
+        const contentType = res.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+          const err = await res.json();
+          throw new Error(err.error || "Failed to upload.");
+        } else {
+          throw new Error(`Server Error (${res.status}): Could not save document.`);
+        }
       }
 
       setPasteName('');
       setPasteContent('');
-      showFlashSuccess("Pasted instructions successfully indexed.");
-      fetchDocuments();
+      showFlashSuccess("Pasted instructions indexed. Running audit...");
+      await fetchDocuments();
+      await runAuditSimulation(payload.name);
     } catch (err: any) {
       showFlashError(err.message);
     } finally {
@@ -344,88 +452,14 @@ export default function App() {
     }
   };
 
-  // Trigger Onboarding Audit Simulation (runs three agents!)
+  // Trigger Onboarding Audit Simulation (wrapper for original UI button)
   const handleTriggerSimulation = async (e: React.FormEvent) => {
     e.preventDefault();
     if (documents.length === 0) {
       showFlashError("Index is empty. Please upload corporate guidelines or handbooks first.");
       return;
     }
-
-    setIsSimulating(true);
-    setSimulationProgress(15);
-    setSimulationStatusText("Step 1: Segmenting document context chunks...");
-    
-    // Simulating active steps for smooth visual rhythm
-    const progressInterval = setInterval(() => {
-      setSimulationProgress(prev => {
-        if (prev < 40) {
-          setSimulationStatusText("Step 2: Activating Document Reader Agent & loading memory matrices...");
-          return prev + 5;
-        } else if (prev < 70) {
-          setSimulationStatusText(`Step 3: Employee Simulation Agent acting as newly hired [${selectedRole}]...`);
-          return prev + 4;
-        } else if (prev < 95) {
-          setSimulationStatusText("Step 4: Contradiction Detector comparing HR policies & developer guides...");
-          return prev + 3;
-        }
-        return prev;
-      });
-    }, 1500);
-
-    try {
-      const res = await fetch('/api/sessions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: customSessionName.trim() ? customSessionName : undefined,
-          candidateRole: selectedRole
-        })
-      });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Simulation failed to start.");
-      }
-
-      const newSessionObj = await res.json();
-      
-      // Keep fetching progress state until it completes
-      let isComplete = false;
-      let checkAttempts = 0;
-      
-      while (!isComplete && checkAttempts < 15) {
-        await new Promise(r => setTimeout(r, 2000));
-        const checkRes = await fetch(`/api/sessions/${newSessionObj.id}`);
-        if (checkRes.ok) {
-          const detailData = await checkRes.json();
-          if (detailData.session.status === 'completed') {
-            isComplete = true;
-            clearInterval(progressInterval);
-            setSimulationProgress(100);
-            setSimulationStatusText("Audit Simulation Complete!");
-            showFlashSuccess("Onboarding Audit fully simulated!");
-            
-            // Instantly transition and load findings
-            setSelectedSessionId(detailData.session.id);
-            await fetchSessions();
-            break;
-          } else if (detailData.session.status === 'failed') {
-            throw new Error("Simulation Agent encountered a runtime roadblock.");
-          }
-        }
-        checkAttempts++;
-      }
-
-      setCustomSessionName('');
-
-    } catch (err: any) {
-      clearInterval(progressInterval);
-      showFlashError(err.message || "Simulation halted due to internal network interruption.");
-    } finally {
-      clearInterval(progressInterval);
-      setIsSimulating(false);
-    }
+    await runAuditSimulation();
   };
 
   // Interactive chat message submissions
@@ -462,12 +496,22 @@ export default function App() {
       });
 
       if (res.ok) {
-        const newMsg = await res.json();
-        // Fetch fresh details with correct ID sync
-        fetchSessionDetails(selectedSessionId);
+        const reply = await res.json();
+        // Update local state directly for immediate feedback
+        if (sessionDetail) {
+          setSessionDetail(prev => prev ? {
+            ...prev,
+            chats: [...prev.chats, reply]
+          } : null);
+        }
+      } else {
+        const errText = await res.text();
+        console.error("Chat error:", errText);
+        showFlashError("Audit Agent is unavailable. Please check your connection.");
       }
     } catch (err) {
-      console.error(err);
+      console.error("Chat fetch failed:", err);
+      showFlashError("Network error while talking to Auditor.");
     } finally {
       setIsChatTyping(false);
     }
@@ -514,14 +558,22 @@ export default function App() {
 
       if (res.ok) {
         const reply = await res.json();
-        if (selectedSessionId) {
-          fetchSessionDetails(targetSessionId);
+        if (selectedSessionId && sessionDetail) {
+          setSessionDetail(prev => prev ? {
+            ...prev,
+            chats: [...prev.chats, reply]
+          } : null);
         } else {
           setGlobalChats(prev => [...prev, reply]);
         }
+      } else {
+        const errText = await res.text();
+        console.error("Sidebar chat error:", errText);
+        showFlashError("Communication failure.");
       }
     } catch (err) {
-      console.error(err);
+      console.error("Sidebar chat fetch failed:", err);
+      showFlashError("Could not reach Audit Agent.");
     } finally {
       setIsChatTyping(false);
     }
@@ -651,10 +703,10 @@ export default function App() {
 
   // Radial score list
   const radarData = sessionDetail ? [
-    { name: 'Clarity', value: sessionDetail.session.score >= 70 ? 8 : 5 },
-    { name: 'Completeness', value: sessionDetail.session.score >= 75 ? 9 : 4 },
-    { name: 'Consistency', value: sessionDetail.session.score >= 80 ? 8 : 4 },
-    { name: 'Support SLA', value: sessionDetail.session.score >= 60 ? 7 : 6 }
+    { name: 'Clarity', value: sessionDetail.session.clarityScore || (sessionDetail.session.score >= 70 ? 8 : 5) },
+    { name: 'Completeness', value: sessionDetail.session.completenessScore || (sessionDetail.session.score >= 75 ? 9 : 4) },
+    { name: 'Consistency', value: sessionDetail.session.consistencyScore || (sessionDetail.session.score >= 80 ? 8 : 4) },
+    { name: 'Support SLA', value: sessionDetail.session.supportScore || (sessionDetail.session.score >= 60 ? 7 : 6) }
   ] : [];
 
   return (
@@ -1241,7 +1293,7 @@ export default function App() {
             <div className="bg-white border border-stone-200 rounded-xl p-5 shadow-3xs">
               <h3 className="text-sm font-bold font-display text-stone-800 tracking-tight mb-3 uppercase flex items-center justify-between">
                 <span>1. Process Documents</span>
-                <span className="text-[10px] font-mono text-stone-400 font-normal">PDF / TXT / MD</span>
+                <span className="text-[10px] font-mono text-stone-400 font-normal">DOCX / PDF / TXT / MD</span>
               </h3>
 
               {/* Drag and Drop Zone */}
@@ -1250,7 +1302,7 @@ export default function App() {
                   type="file" 
                   id="file-upload-input"
                   multiple 
-                  accept=".pdf,.txt,.md" 
+                  accept=".pdf,.txt,.md,.docx,.doc" 
                   onChange={handleFileUpload}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 />
@@ -1458,7 +1510,7 @@ export default function App() {
               <span className="text-xs font-bold text-[#1e293b]">Choose Active Report:</span>
               <div className="flex items-center gap-2 w-full sm:w-auto">
                 <select
-                  id="session-history-select"
+                  id="session-history-select-main"
                   value={selectedSessionId || ''}
                   onChange={e => {
                     setSelectedSessionId(e.target.value);
@@ -1475,7 +1527,7 @@ export default function App() {
                 </select>
                 {selectedSessionId && (
                   <button
-                    id="btn-del-session"
+                    id="btn-del-session-main"
                     onClick={(e) => handleSessionDelete(selectedSessionId, e)}
                     className="p-2 px-2.5 hover:bg-rose-50 border border-[#e2e8f0] text-[#94a3b8] hover:text-rose-600 bg-white rounded-lg cursor-pointer transition-colors"
                     title="Archive this report"
@@ -1539,9 +1591,9 @@ export default function App() {
               </div>
               <div className="flex items-center gap-2 w-full sm:w-auto">
                 <select
-                  id="session-history-select"
+                  id="session-history-select-hidden"
                   value={selectedSessionId || ''}
-                  onChange={e => setSelectedSessionId(e.target.value)}
+                  onChange={() => {}}
                   className="bg-white text-xs border border-[#e2e8f0] hover:border-[#cbd5e1] rounded px-3 py-1.5 focus:outline-[#3b82f6] font-semibold cursor-pointer text-[#334155] flex-1 min-w-[200px]"
                 >
                   <option value="" disabled>-- Choose historical audit --</option>
@@ -1553,9 +1605,8 @@ export default function App() {
                 </select>
                 {selectedSessionId && (
                   <button
-                    id="btn-del-session"
+                    id="btn-del-session-hidden"
                     onClick={(e) => handleSessionDelete(selectedSessionId, e)}
-                    className="p-1 px-1.5 hover:bg-rose-50 border border-[#e2e8f0] text-[#94a3b8] hover:text-rose-600 bg-white rounded cursor-pointer transition-colors"
                     title="Archive this report"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -1614,15 +1665,17 @@ export default function App() {
                   <div className="bg-white border border-[#e2e8f0] p-5 rounded-xl shadow-sm md:col-span-2 flex items-center gap-5">
                     <div className="relative w-24 h-24 rounded-full flex items-center justify-center shrink-0" style={{ background: `conic-gradient(#3b82f6 ${sessionDetail.session.score}%, #e2e8f0 0)` }}>
                       <div className="w-[84px] h-[84px] bg-white rounded-full flex flex-col items-center justify-center shadow-3xs">
-                        <span className="text-xl font-bold text-[#0f172a]">{sessionDetail.session.score}</span>
-                        <span className="text-[9px] text-[#64748b] font-bold tracking-widest uppercase">SCORE</span>
+                        <span className="text-2xl font-black text-[#0f172a]">{sessionDetail.session.score}%</span>
+                        <span className="text-[9px] text-blue-600 font-bold tracking-widest uppercase">MATCH</span>
                       </div>
                     </div>
                     <div>
                       <h4 className="text-xs font-bold text-[#64748b] uppercase tracking-wider">Overall Success</h4>
-                      <h3 className="text-[#0f172a] font-bold text-sm mt-1 leading-snug">Autonomous Audit Results</h3>
-                      <p className="text-[11px] text-[#64748b] mt-1 leading-relaxed">
-                        The simulated candidate role completed active task milestones with the results plotted below.
+                      <h3 className="text-[#0f172a] font-bold text-sm mt-1 leading-snug">
+                        {sessionDetail.session.name}
+                      </h3>
+                      <p className="text-[11px] text-[#64748b] mt-1 leading-relaxed line-clamp-2">
+                        {sessionDetail.session.executiveSummary || "The simulated candidate role completed active task milestones with the results plotted below."}
                       </p>
                     </div>
                   </div>
@@ -1677,19 +1730,19 @@ export default function App() {
                     <div className="space-y-1.5 text-[11px] font-semibold text-[#1e293b]">
                       <div className="flex items-center justify-between pb-1.5 border-b border-dashed border-[#e2e8f0]">
                         <span className="text-[#64748b]">Clarity</span>
-                        <span>{sessionDetail.session.score >= 70 ? '8' : '5'} / 10</span>
+                        <span>{sessionDetail.session.clarityScore || (sessionDetail.session.score >= 70 ? '8' : '5')} / 10</span>
                       </div>
                       <div className="flex items-center justify-between pb-1.5 border-b border-dashed border-[#e2e8f0]">
                         <span className="text-[#64748b]">Completeness</span>
-                        <span>{sessionDetail.session.score >= 75 ? '9' : '4'} / 10</span>
+                        <span>{sessionDetail.session.completenessScore || (sessionDetail.session.score >= 75 ? '9' : '4')} / 10</span>
                       </div>
                       <div className="flex items-center justify-between pb-1.5 border-b border-dashed border-[#e2e8f0]">
                         <span className="text-[#64748b]">Consistency</span>
-                        <span>{sessionDetail.session.score >= 80 ? '8' : '4'} / 10</span>
+                        <span>{sessionDetail.session.consistencyScore || (sessionDetail.session.score >= 80 ? '8' : '4')} / 10</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-[#64748b]">Support SLA Escalation</span>
-                        <span>{sessionDetail.session.score >= 60 ? '7' : '6'} / 10</span>
+                        <span>{sessionDetail.session.supportScore || (sessionDetail.session.score >= 60 ? '7' : '6')} / 10</span>
                       </div>
                     </div>
                   </div>
@@ -2341,7 +2394,7 @@ export default function App() {
                         type="checkbox"
                         checked={regAgree}
                         onChange={(e) => setRegAgree(e.target.checked)}
-                        className="mt-0.5 w-4 h-4 text-blue-600 bg-slate-950 border-slate-705 rounded focus:ring-blue-500 cursor-pointer"
+                        className="mt-0.5 w-4 h-4 text-blue-600 bg-slate-950 border-slate-700 rounded focus:ring-blue-500 cursor-pointer"
                       />
                       <label htmlFor="reg-agree-check" className="text-[10px] text-slate-400 leading-relaxed cursor-pointer select-none">
                         I confirm this profile will serve as my official signature for the Agent Recruit contradiction suite and that I accept local compliance storage terms.
